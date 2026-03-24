@@ -1,0 +1,342 @@
+# Tripo3D Unity SDK - 架构图
+
+## 🏗️ 系统架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Unity Scene                          │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │                    APIClient.cs                        │ │
+│  │              (MonoBehaviour Controller)                │ │
+│  │                                                        │ │
+│  │  • UI Button Handler                                  │ │
+│  │  • Workflow Manager Initialization                    │ │
+│  └────────────────┬───────────────────────────────────────┘ │
+└───────────────────┼─────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  TripoWorkflowManager                        │
+│                  (Workflow Orchestrator)                     │
+│                                                              │
+│  • Manages 9-step workflow                                  │
+│  • Coordinates API Service & Model Loader                   │
+│  • Error handling & recovery                                │
+│                                                              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │ Step 1-3     │  │ Step 4-7     │  │ Step 8-9     │     │
+│  │ Upload &     │→ │ Rigging &    │→ │ Load &       │     │
+│  │ Generate     │  │ Convert      │  │ Download     │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+└──────────┬────────────────────────────────────┬─────────────┘
+           │                                    │
+           ▼                                    ▼
+┌──────────────────────────┐      ┌──────────────────────────┐
+│   TripoAPIService        │      │   TripoModelLoader       │
+│   (API Communication)    │      │   (Model Operations)     │
+│                          │      │                          │
+│  • Upload Image          │      │  • Load GLTF Model       │
+│  • Create Tasks          │      │  • Display in Scene      │
+│  • Poll Status           │      │  • Download to Disk      │
+│  • Error Handling        │      │  • Collect Statistics    │
+└──────────┬───────────────┘      └──────────────────────────┘
+           │
+           │ Uses
+           ▼
+┌──────────────────────────┐
+│     TripoConfig          │
+│  (ScriptableObject)      │
+│                          │
+│  • API Key               │
+│  • Endpoints             │
+│  • Request Settings      │
+│  • Model Parameters      │
+│  • Export Settings       │
+└──────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                      Support Systems                         │
+│                                                              │
+│  ┌──────────────────┐         ┌──────────────────────┐     │
+│  │  TripoLogger     │         │  TripoDataModels     │     │
+│  │  (Logging)       │         │  (Data Structures)   │     │
+│  │                  │         │                      │     │
+│  │  • Workflow Logs │         │  • Request Models    │     │
+│  │  • Step Progress │         │  • Response Models   │     │
+│  │  • Error Logs    │         │  • Task Data         │     │
+│  │  • Statistics    │         │  • Output Data       │     │
+│  └──────────────────┘         └──────────────────────┘     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 🔄 数据流
+
+### 完整工作流程数据流
+
+```
+User Click
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 1. Image Upload                                             │
+│    Image File → APIService → Tripo3D API → Image Token     │
+└─────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 2. Model Generation                                         │
+│    Image Token → APIService → Tripo3D API → Task ID        │
+└─────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 3. Poll Generation Status                                   │
+│    Task ID → APIService → Tripo3D API → PBR Model URL      │
+│    (Polling every 2s until success)                         │
+└─────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 4. Rigging Task                                             │
+│    Task ID → APIService → Tripo3D API → Rigging Task ID    │
+└─────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 5. Poll Rigging Status                                      │
+│    Rigging Task ID → APIService → Tripo3D API → Model URL  │
+│    (Polling every 2s until success)                         │
+└─────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 6. Conversion Task                                          │
+│    Rigging Task ID → APIService → Tripo3D API → Conv ID    │
+└─────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 7. Poll Conversion Status                                   │
+│    Conv ID → APIService → Tripo3D API → GLTF Model URL     │
+│    (Polling every 2s until success)                         │
+└─────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 8. Load Model                                               │
+│    GLTF URL → ModelLoader → Download → Parse → Display     │
+└─────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 9. Download Model                                           │
+│    GLTF URL → ModelLoader → Download → Save to Disk        │
+└─────────────────────────────────────────────────────────────┘
+    │
+    ▼
+Complete!
+```
+
+## 🎯 组件交互图
+
+```
+┌──────────────┐
+│  APIClient   │
+└──────┬───────┘
+       │ creates
+       ▼
+┌──────────────────────┐
+│ WorkflowManager      │
+└──────┬───────────────┘
+       │ uses
+       ├─────────────────────┐
+       │                     │
+       ▼                     ▼
+┌──────────────┐      ┌──────────────┐
+│ APIService   │      │ ModelLoader  │
+└──────┬───────┘      └──────┬───────┘
+       │                     │
+       │ reads               │ uses
+       ▼                     │
+┌──────────────┐             │
+│ TripoConfig  │             │
+└──────────────┘             │
+                             │
+       ┌─────────────────────┘
+       │
+       ▼
+┌──────────────┐
+│ Unity Scene  │
+└──────────────┘
+
+All components use:
+┌──────────────┐      ┌──────────────┐
+│ TripoLogger  │      │ DataModels   │
+└──────────────┘      └──────────────┘
+```
+
+## 📦 模块依赖关系
+
+```
+APIClient
+    └── TripoWorkflowManager
+            ├── TripoAPIService
+            │       └── TripoConfig
+            └── TripoModelLoader
+
+TripoLogger (独立，被所有模块使用)
+TripoDataModels (独立，被所有模块使用)
+```
+
+## 🔌 API调用序列
+
+```
+Sequence Diagram:
+
+User          APIClient    WorkflowMgr    APIService    Tripo3D API
+ │                │              │              │              │
+ │─Click Button──>│              │              │              │
+ │                │─StartFlow───>│              │              │
+ │                │              │─Upload──────>│              │
+ │                │              │              │─POST────────>│
+ │                │              │              │<─Token───────│
+ │                │              │<─Token───────│              │
+ │                │              │─CreateTask──>│              │
+ │                │              │              │─POST────────>│
+ │                │              │              │<─TaskID──────│
+ │                │              │<─TaskID──────│              │
+ │                │              │─PollStatus──>│              │
+ │                │              │              │─GET─────────>│
+ │                │              │              │<─Status──────│
+ │                │              │              │  (repeat)    │
+ │                │              │              │─GET─────────>│
+ │                │              │              │<─Success─────│
+ │                │              │<─ModelURL────│              │
+ │                │              │─CreateRig───>│              │
+ │                │              │              │─POST────────>│
+ │                │              │              │<─RigTaskID───│
+ │                │              │─PollRig─────>│              │
+ │                │              │              │─GET─────────>│
+ │                │              │              │<─Success─────│
+ │                │              │─Convert─────>│              │
+ │                │              │              │─POST────────>│
+ │                │              │              │<─ConvTaskID──│
+ │                │              │─PollConv────>│              │
+ │                │              │              │─GET─────────>│
+ │                │              │              │<─Success─────│
+ │                │              │<─GLTF URL────│              │
+ │                │              │                             │
+ │                │              │─LoadModel───>ModelLoader    │
+ │                │              │              │─Download────>│
+ │                │              │              │<─Model Data──│
+ │                │              │              │─Parse & Load─│
+ │                │              │<─Complete────│              │
+ │                │<─Complete────│              │              │
+ │<─Model Shown───│              │              │              │
+```
+
+## 🎨 设计模式应用
+
+### 1. 单一职责原则 (SRP)
+```
+APIClient        → UI交互
+WorkflowManager  → 流程编排
+APIService       → API通信
+ModelLoader      → 模型操作
+Logger           → 日志管理
+Config           → 配置管理
+```
+
+### 2. 依赖注入
+```csharp
+// WorkflowManager接收依赖
+public TripoWorkflowManager(
+    TripoConfig config,           // 配置
+    Transform modelParent,        // 模型父对象
+    MonoBehaviour coroutineRunner // 协程运行器
+)
+```
+
+### 3. 回调模式
+```csharp
+// 异步操作使用回调
+yield return apiService.UploadImage(
+    data, 
+    fileName, 
+    token => {
+        // 成功回调
+    }
+);
+```
+
+### 4. 策略模式
+```csharp
+// 泛型方法支持不同策略
+PollTaskStatus<T>(
+    taskId,
+    parseResponse,  // 解析策略
+    getStatus,      // 状态获取策略
+    getUrl          // URL获取策略
+)
+```
+
+### 5. 工厂模式
+```csharp
+// ScriptableObject作为配置工厂
+Create → Tripo3D → Configuration
+```
+
+## 📊 性能考虑
+
+### 异步操作
+```
+Upload (1-3s)
+    ↓
+Generate (10-30s) ← Polling
+    ↓
+Rigging (20-40s) ← Polling
+    ↓
+Convert (10-20s) ← Polling
+    ↓
+Download (2-5s)
+    ↓
+Total: ~45-100s
+```
+
+### 内存管理
+- 使用 `using` 语句管理UnityWebRequest
+- 及时释放大型byte数组
+- 模型加载后清理临时数据
+
+### 网络优化
+- 重试机制（最多3次）
+- 轮询间隔可配置（默认2s）
+- 请求超时设置（默认30s）
+
+## 🔒 安全考虑
+
+```
+API Key → TripoConfig (ScriptableObject)
+    ↓
+    不在代码中硬编码
+    ↓
+    可以为不同环境创建不同配置
+    ↓
+    不提交到版本控制（.gitignore）
+```
+
+## 🧪 可测试性
+
+```
+每个组件都可以独立测试:
+
+✓ APIService    → Mock TripoConfig
+✓ ModelLoader   → Mock Transform
+✓ WorkflowMgr   → Mock APIService & ModelLoader
+✓ Logger        → 静态方法，易于测试
+✓ Config        → ScriptableObject，易于创建测试实例
+```
+
+---
+
+**提示**: 这个架构图可以帮助你快速理解系统的整体结构和各组件之间的关系。
