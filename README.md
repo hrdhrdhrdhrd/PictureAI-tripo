@@ -290,4 +290,4 @@ MIT License
 
 ---
 
-**Made with ❤️ for Unity Developers**
+**Made with Kiro for Unity Developers**
