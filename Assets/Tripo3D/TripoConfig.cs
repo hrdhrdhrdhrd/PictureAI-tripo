@@ -10,7 +10,7 @@ namespace Tripo3D
     {
         [Header("API Settings")]
         [Tooltip("Your Tripo3D API key")]
-        public string apiKey = "tsk_FXE52K40lbsiBS6H-_16hCGnZQ_KeBG59hb5mc5kxSm";
+        public string apiKey = "tsk_xxx_xxx";
         
         [Header("Endpoints")]
         public string baseUrl = "https://api.tripo3d.ai/v2/openapi";
